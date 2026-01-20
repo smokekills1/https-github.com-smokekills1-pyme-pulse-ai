@@ -5,18 +5,19 @@ import react from '@vitejs/plugin-react';
 export default defineConfig({
   plugins: [react()],
   define: {
-    // Definimos el objeto process.env completo para que la SDK de Gemini no falle al buscarlo
     'process.env': {
-      API_KEY: JSON.stringify(process.env.API_KEY)
+      API_KEY: JSON.stringify(process.env.API_KEY || "")
     }
   },
   build: {
-    chunkSizeWarningLimit: 1000,
+    outDir: 'dist',
+    sourcemap: false,
+    chunkSizeWarningLimit: 1600,
     rollupOptions: {
       output: {
         manualChunks: {
-          vendor: ['react', 'react-dom'],
-          ai: ['@google/genai']
+          'react-vendor': ['react', 'react-dom'],
+          'genai-vendor': ['@google/genai']
         }
       }
     }
