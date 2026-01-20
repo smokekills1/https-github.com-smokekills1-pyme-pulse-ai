@@ -2,21 +2,18 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { MarketingOptions, MarketingVariant } from "../types";
 
-// Inicialización del cliente de IA usando la variable de entorno del sistema
+// Inicialización del cliente de IA. 
+// La variable process.env.API_KEY ahora es inyectada por Vite.
 const getAiClient = () => new GoogleGenAI({ apiKey: process.env.API_KEY as string });
 
-/**
- * Genera copys de marketing estructurados usando JSON Schema para máxima fiabilidad.
- */
 export const generateMarketingCopy = async (options: MarketingOptions): Promise<MarketingVariant[]> => {
   const ai = getAiClient();
-  const prompt = `Actúa como un Experto en Marketing Digital para PYMES. 
-  Genera 3 variantes de anuncios altamente persuasivos para la plataforma ${options.platform}.
-  PRODUCTO/SERVICIO: ${options.product}
-  PÚBLICO OBJETIVO: ${options.target}
-  TONO DE VOZ: ${options.tone}
-  
-  Para cada variante, incluye el texto del anuncio y un "imagePrompt" detallado para generar la imagen que lo acompaña.`;
+  const prompt = `Actúa como Experto en Marketing Digital. 
+  Genera 3 variantes de anuncios persuasivos para ${options.platform}.
+  PRODUCTO: ${options.product}
+  TARGET: ${options.target}
+  TONO: ${options.tone}
+  Devuelve un JSON con 'text' e 'imagePrompt'.`;
 
   try {
     const response = await ai.models.generateContent({
@@ -29,71 +26,66 @@ export const generateMarketingCopy = async (options: MarketingOptions): Promise<
           items: {
             type: Type.OBJECT,
             properties: {
-              text: { type: Type.STRING, description: "El cuerpo de texto del anuncio." },
-              imagePrompt: { type: Type.STRING, description: "Prompt para generar la imagen descriptiva." }
+              text: { type: Type.STRING },
+              imagePrompt: { type: Type.STRING }
             },
             required: ["text", "imagePrompt"]
           }
         }
       }
     });
-
-    const result = JSON.parse(response.text || "[]");
-    return result;
+    return JSON.parse(response.text || "[]");
   } catch (error) {
-    console.error("Error en Marketing AI:", error);
-    throw new Error("No se pudo generar la campaña. Verifique su conexión.");
+    throw new Error("Error en el servicio de Marketing.");
   }
 };
 
-/**
- * Responde a reseñas de clientes manteniendo el tono de marca.
- */
 export const respondToReview = async (review: string, business: string, tone: string = 'Profesional'): Promise<string> => {
   const ai = getAiClient();
-  const prompt = `Eres el Director de Atención al Cliente de "${business}". 
-  Responde de forma impecable a la siguiente reseña: "${review}".
-  TONO: ${tone}. 
-  REGLAS: Máximo 80 palabras, castellano de España, profesional y empático. No uses emojis.`;
+  const prompt = `Responde a esta reseña para la empresa "${business}": "${review}". Tono ${tone}. Máximo 60 palabras.`;
 
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: [{ role: 'user', parts: [{ text: prompt }] }]
     });
-
-    return response.text || "Gracias por su comentario. Estamos trabajando para mejorar.";
+    return response.text || "Gracias por su feedback.";
   } catch (error) {
-    console.error("Error en Review AI:", error);
-    throw new Error("Error al procesar la respuesta a la reseña.");
+    throw new Error("Error al procesar la reseña.");
   }
 };
 
-/**
- * Realiza un análisis estratégico profundo usando el modelo Pro con capacidades de razonamiento.
- */
 export const analyzeBusinessIdea = async (idea: string): Promise<string> => {
+  // Validación mínima de seguridad
+  if (idea.trim().length < 3) {
+    throw new Error("Por favor, escriba al menos una palabra clave (ej: 'Zapatería online').");
+  }
+
   const ai = getAiClient();
-  const prompt = `Realiza una auditoría estratégica integral para la siguiente propuesta de negocio: "${idea}".
-  Debes incluir:
-  1. Diagnóstico de Viabilidad.
-  2. Análisis DAFO detallado.
-  3. 3 Estrategias de Crecimiento Prioritarias.
-  4. Hoja de ruta (Next Steps) a 6 meses.`;
+  
+  // Hemos simplificado el prompt para que la IA no se abrume si el input es corto
+  const prompt = `Como Consultor Senior, analiza esta idea de negocio: "${idea}".
+  
+  Estructura brevemente:
+  1. VIABILIDAD: ¿Es buena idea?
+  2. DAFO RÁPIDO: Puntos clave.
+  3. PRIMER PASO: ¿Por dónde empezar hoy?
+  
+  Si la idea es muy breve, expande tú las posibilidades basándote en el mercado español actual.`;
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview',
+      model: 'gemini-3-flash-preview',
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
       config: {
-        thinkingConfig: { thinkingBudget: 4000 },
-        systemInstruction: "Eres un Consultor Estratégico de alto nivel. Tu lenguaje es sobrio, técnico y directo. Estructura el informe con secciones claras y numeradas. Usa castellano de España. Evita el uso de asteriscos innecesarios en el texto final."
+        temperature: 0.9, // Más creatividad para que "rellene" huecos si el input es corto
+        systemInstruction: "Eres un consultor de negocios proactivo. Si el cliente te da poca información, usa tu inteligencia para proponer un escenario probable y ayudarle a empezar."
       }
     });
 
-    return response.text || "No se pudo generar el análisis detallado.";
+    return response.text || "No se pudo generar el análisis. Intente dar más contexto.";
   } catch (error) {
-    console.error("Error en Analysis AI:", error);
-    throw new Error("El análisis estratégico requiere más tiempo o recursos. Intente simplificar la descripción.");
+    console.error("Error Analysis:", error);
+    throw new Error("El modelo está ocupado o la idea es ambigua. Intente con otra frase.");
   }
 };
