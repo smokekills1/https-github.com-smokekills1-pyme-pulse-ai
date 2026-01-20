@@ -2,9 +2,11 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { MarketingOptions, MarketingVariant } from "../types";
 
-// Inicialización del cliente de IA. 
-// La variable process.env.API_KEY ahora es inyectada por Vite.
-const getAiClient = () => new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+// Inicialización del cliente de IA asegurando que lea la clave inyectada por Vite
+const getAiClient = () => {
+  const apiKey = process.env.API_KEY;
+  return new GoogleGenAI({ apiKey: apiKey as string });
+};
 
 export const generateMarketingCopy = async (options: MarketingOptions): Promise<MarketingVariant[]> => {
   const ai = getAiClient();
@@ -13,7 +15,7 @@ export const generateMarketingCopy = async (options: MarketingOptions): Promise<
   PRODUCTO: ${options.product}
   TARGET: ${options.target}
   TONO: ${options.tone}
-  Devuelve un JSON con 'text' e 'imagePrompt'.`;
+  Devuelve JSON con 'text' e 'imagePrompt'.`;
 
   try {
     const response = await ai.models.generateContent({
@@ -35,8 +37,9 @@ export const generateMarketingCopy = async (options: MarketingOptions): Promise<
       }
     });
     return JSON.parse(response.text || "[]");
-  } catch (error) {
-    throw new Error("Error en el servicio de Marketing.");
+  } catch (error: any) {
+    console.error("Error Marketing:", error);
+    throw new Error(`Error de IA: ${error.message || "Fallo de comunicación con Gemini"}`);
   }
 };
 
@@ -50,42 +53,41 @@ export const respondToReview = async (review: string, business: string, tone: st
       contents: [{ role: 'user', parts: [{ text: prompt }] }]
     });
     return response.text || "Gracias por su feedback.";
-  } catch (error) {
-    throw new Error("Error al procesar la reseña.");
+  } catch (error: any) {
+    console.error("Error Review:", error);
+    throw new Error(`Error al responder: ${error.message}`);
   }
 };
 
 export const analyzeBusinessIdea = async (idea: string): Promise<string> => {
-  // Validación mínima de seguridad
   if (idea.trim().length < 3) {
-    throw new Error("Por favor, escriba al menos una palabra clave (ej: 'Zapatería online').");
+    throw new Error("Por favor, describa su idea con más detalle.");
   }
 
   const ai = getAiClient();
-  
-  // Hemos simplificado el prompt para que la IA no se abrume si el input es corto
   const prompt = `Como Consultor Senior, analiza esta idea de negocio: "${idea}".
   
   Estructura brevemente:
   1. VIABILIDAD: ¿Es buena idea?
   2. DAFO RÁPIDO: Puntos clave.
-  3. PRIMER PASO: ¿Por dónde empezar hoy?
-  
-  Si la idea es muy breve, expande tú las posibilidades basándote en el mercado español actual.`;
+  3. PRIMER PASO: ¿Por dónde empezar hoy?`;
 
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
       config: {
-        temperature: 0.9, // Más creatividad para que "rellene" huecos si el input es corto
-        systemInstruction: "Eres un consultor de negocios proactivo. Si el cliente te da poca información, usa tu inteligencia para proponer un escenario probable y ayudarle a empezar."
+        temperature: 0.8,
+        systemInstruction: "Eres un consultor proactivo. Si el usuario da poca información, expande tú las posibilidades basándote en el mercado actual."
       }
     });
 
-    return response.text || "No se pudo generar el análisis. Intente dar más contexto.";
-  } catch (error) {
+    return response.text || "No se pudo generar el análisis.";
+  } catch (error: any) {
     console.error("Error Analysis:", error);
-    throw new Error("El modelo está ocupado o la idea es ambigua. Intente con otra frase.");
+    if (error.message?.includes("429")) {
+      throw new Error("Límite de cuota excedido. Por favor, inténtelo de nuevo en un minuto.");
+    }
+    throw new Error(`Error Estratégico: ${error.message}`);
   }
 };
