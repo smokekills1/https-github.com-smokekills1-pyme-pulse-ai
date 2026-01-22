@@ -313,7 +313,7 @@ export const AnalysisTool = () => {
             disabled={loading}
             className="w-full bg-slate-900 text-white py-5 rounded-3xl font-bold uppercase text-[11px] tracking-widest hover:bg-amber-600 transition shadow-xl shadow-slate-200 disabled:opacity-50"
           >
-            {loading ? 'Razonando Análisis (Gemini Pro)...' : 'Ejecutar Auditoría Avanzada'}
+            {loading ? 'Razonando Análisis (Gemini Flash)...' : 'Ejecutar Auditoría Avanzada'}
           </button>
         </div>
 

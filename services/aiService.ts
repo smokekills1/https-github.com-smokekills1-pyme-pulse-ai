@@ -5,7 +5,7 @@ import { MarketingOptions, MarketingVariant } from "../types";
 const getAiClient = () => {
   const apiKey = process.env.API_KEY;
   if (!apiKey || apiKey === "") {
-    throw new Error("API_KEY no configurada. Por favor, añádela en las variables de entorno de Vercel.");
+    throw new Error("API_KEY no detectada. Verifica las variables de entorno en Vercel.");
   }
   return new GoogleGenAI({ apiKey });
 };
@@ -30,8 +30,8 @@ export const generateMarketingCopy = async (options: MarketingOptions): Promise<
           items: {
             type: Type.OBJECT,
             properties: {
-              text: { type: Type.STRING, description: "El cuerpo del anuncio" },
-              imagePrompt: { type: Type.STRING, description: "Sugerencia visual para la IA de imagen" }
+              text: { type: Type.STRING },
+              imagePrompt: { type: Type.STRING }
             },
             required: ["text", "imagePrompt"]
           }
@@ -41,8 +41,8 @@ export const generateMarketingCopy = async (options: MarketingOptions): Promise<
     
     return JSON.parse(response.text || "[]");
   } catch (error: any) {
-    console.error("Error en MarketingTool:", error);
-    throw new Error(error.message || "Error al conectar con Gemini");
+    console.error("Error Marketing:", error);
+    throw new Error(error.message || "Fallo en motor de marketing.");
   }
 };
 
@@ -64,18 +64,23 @@ export const respondToReview = async (review: string, business: string, tone: st
 export const analyzeBusinessIdea = async (idea: string): Promise<string> => {
   try {
     const ai = getAiClient();
-    const prompt = `Analiza esta idea de negocio: "${idea}". 
-    Estructura: 1. Viabilidad, 2. DAFO, 3. Primeros pasos.`;
+    const prompt = `Actúa como un Consultor Senior de Estrategia de Negocio. Analiza la siguiente propuesta: "${idea}". 
+    Proporciona de forma estructurada:
+    1. DIAGNÓSTICO DE VIABILIDAD
+    2. ANÁLISIS DAFO (Debilidades, Amenazas, Fortalezas, Oportunidades)
+    3. PLAN DE ACCIÓN (3 pasos críticos a seguir ahora mismo).
+    Usa un tono profesional, ejecutivo y directo.`;
 
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      config: {
-        thinkingConfig: { thinkingBudget: 0 }
-      }
+      contents: [{ role: 'user', parts: [{ text: prompt }] }]
     });
-    return response.text || "Análisis no disponible.";
+    return response.text || "El análisis no pudo completarse. Por favor, intente con una descripción más breve.";
   } catch (error: any) {
+    console.error("Error Estrategia:", error);
+    if (error.message?.includes("resource") || error.message?.includes("quota")) {
+      throw new Error("El servidor de IA está saturado temporalmente. Por favor, reintenta en unos segundos.");
+    }
     throw new Error(`Error Estratégico: ${error.message}`);
   }
 };
